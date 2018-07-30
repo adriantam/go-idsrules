@@ -42,7 +42,7 @@ func trimQuotes(buf string) string {
 		return buf
 	}
 	if buf[0:1] == "\"" && buf[buflen-1:buflen] == "\"" {
-		return buf[1: buflen-1]
+		return buf[1 : buflen-1]
 	}
 	return buf
 }
@@ -89,7 +89,6 @@ func parseOption(rule string) (string, string, string, error) {
 	if optend < 0 {
 		return option, arg, rule, fmt.Errorf("unterminated option")
 	}
-
 	option = rule[0:optend]
 
 	rule = rule[optend+1:]
@@ -118,6 +117,69 @@ func parseOption(rule string) (string, string, string, error) {
 	}
 
 	return option, trimQuotes(arg), rule, nil
+}
+
+// Return the FlowInfo rule
+func returnFlowInfo(buf string) FlowInfo {
+	curFlowInfo := FlowInfo{}
+	options := strings.Split(buf, ",")
+	for _, option := range options {
+		switch option {
+		case "to_client":
+			curFlowInfo.ToClient = true
+		case "to_server":
+			curFlowInfo.ToServer = true
+		case "from_client":
+			curFlowInfo.FromClient = true
+		case "from_server":
+			curFlowInfo.FromServer = true
+		case "established":
+			curFlowInfo.Established = true
+		case "not_established":
+			curFlowInfo.NotEstablished = true
+		case "stateless":
+			curFlowInfo.Stateless = true
+		case "no_stream":
+			curFlowInfo.NoStream = true
+		case "only_stream":
+			curFlowInfo.OnlyStream = true
+		case "no_frag":
+			curFlowInfo.NoFrag = true
+		case "only_frag":
+			curFlowInfo.OnlyFrag = true
+		}
+	}
+
+	return curFlowInfo
+}
+
+// Function will update payload based on buf
+func updatePayload(payload *Payload,
+	buf string, args string) {
+	switch buf {
+	case "http_client_body":
+		payload.HTTPClientBody = true
+	case "http_cookie":
+		payload.HTTPCookie = true
+	case "http_raw_cookie":
+		payload.HTTPRawCookie = true
+	case "http_header":
+		payload.HTTPHeader = true
+	case "http_raw_header":
+		payload.HTTPRawHeader = true
+	case "http_method":
+		payload.HTTPMethod = true
+	case "http_uri":
+		payload.HTTPUri = true
+	case "http_raw_uri":
+		payload.HTTPRawURI = true
+	case "http_stat_code":
+		payload.HTTPStatCode = true
+	case "http_stat_msg":
+		payload.HTTPStatMsg = true
+	case "fast_pattern":
+		payload.FastPattern = true
+	}
 }
 
 // Parse an IDS rule from the provided string buffer.
@@ -215,6 +277,12 @@ func Parse(buf string) (Rule, error) {
 
 		ruleOption := RuleOption{option, arg}
 		rule.Options = append(rule.Options, ruleOption)
+		isNegative := false
+		if strings.HasPrefix(arg, "!") {
+			arg = strings.TrimPrefix(arg, "!\"")
+			arg = strings.TrimRight(arg, "\"")
+			isNegative = true
+		}
 
 		switch option {
 		case "msg":
@@ -231,6 +299,31 @@ func Parse(buf string) (Rule, error) {
 				return rule, fmt.Errorf("failed to parse sid: %s", arg)
 			}
 			rule.Gid = gid
+		case "content":
+			rule.Payload = append(rule.Payload, Payload{
+				Negative: isNegative,
+				Data:     arg,
+				Type:     Content,
+			})
+		case "protected_content":
+			rule.Payload = append(rule.Payload, Payload{
+				Negative: isNegative,
+				Data:     arg,
+				Type:     ProtectedContent,
+			})
+		case "pcre":
+			rule.Payload = append(rule.Payload, Payload{
+				Negative: isNegative,
+				Data:     arg,
+				Type:     Pcre,
+			})
+		case "flow":
+			rule.FlowInfo = returnFlowInfo(arg)
+		case "http_client_body", "http_cookie", "http_raw_cookie", "http_header", "http_raw_header", "http_method", "http_uri", "http_raw_uri", "http_stat_code", "http_stat_msg", "fast_pattern":
+			if len(rule.Payload) > 0 {
+				// only do that when there are content to modify
+				updatePayload(&rule.Payload[len(rule.Payload)-1], option, arg)
+			}
 		}
 	}
 

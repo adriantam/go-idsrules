@@ -29,6 +29,51 @@ type RuleOption struct {
 	Args   string `json:"args"`
 }
 
+// PayloadType describes the type of payload (i.e., content/pcre/etc.)
+type PayloadType int
+
+// List of enum
+const (
+	Content PayloadType = iota
+	ProtectedContent
+	Pcre
+)
+
+// Payload describes pcre/content/file_data
+type Payload struct {
+	Negative       bool
+	Data           string // The actual data
+	Type           PayloadType
+	HTTPClientBody bool
+	HTTPCookie     bool
+	HTTPRawCookie  bool
+	HTTPHeader     bool
+	HTTPRawHeader  bool
+	HTTPMethod     bool
+	HTTPUri        bool
+	HTTPRawURI     bool
+	HTTPStatCode   bool
+	HTTPStatMsg    bool
+	// HTTPEncode HTTPEncode
+	FastPattern bool
+}
+
+// FlowInfo describes flow information such as
+// from_client/from_server/etc.
+type FlowInfo struct {
+	FromClient     bool
+	FromServer     bool
+	ToClient       bool
+	ToServer       bool
+	Established    bool
+	NotEstablished bool
+	Stateless      bool
+	NoStream       bool
+	OnlyStream     bool
+	NoFrag         bool
+	OnlyFrag       bool
+}
+
 // Rule is a struct representing an IDS rule.
 type Rule struct {
 	// The raw rule string.
@@ -47,6 +92,12 @@ type Rule struct {
 
 	// List of options in order.
 	Options []RuleOption
+
+	// Flow information
+	FlowInfo FlowInfo
+
+	// List of payload information
+	Payload []Payload
 
 	// Some options are also pulled out for easy access.
 	Msg string
